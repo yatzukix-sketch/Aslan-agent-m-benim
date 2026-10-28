@@ -7,6 +7,7 @@ import time
 
 from . import banner as banner_mod
 from . import crypto, net, osint, payloads, recon, web
+from . import default_workers, detect_platform
 from .ui import UI
 
 AUTHORIZED = False
@@ -49,7 +50,7 @@ def cmd_scan(ui, args):
         return 1
     ports = net.parse_ports(args.ports)
     timeout = args.timeout
-    workers = args.workers
+    workers = default_workers(args.workers)
 
     resolved = net.resolve(target)
     ui.header("Port taramasi")
@@ -110,7 +111,7 @@ def cmd_discover(ui, args):
     print()
     ui.info("TCP probe: %s" % ", ".join(str(p) for p in (80, 443, 22, 445, 3389)))
     started = time.time()
-    alive = net.ping_sweep(hosts, timeout=args.timeout, workers=args.workers)
+    alive = net.ping_sweep(hosts, timeout=args.timeout, workers=default_workers(args.workers))
     ui.ok("%d canli host (%.1fs)" % (len(alive), time.time() - started))
     if alive:
         print()
@@ -465,8 +466,9 @@ def cmd_dorks(ui, args):
 def cmd_sysinfo(ui, args):
     ui.header("Ortam")
     ui.kv("Python", sys.version.split()[0])
-    ui.kv("Platform", sys.platform)
-    ui.kv("Termux", "evet" if os.environ.get("PREFIX", "").find("com.termux") >= 0 else "hayir")
+    ui.kv("Isletim sistemi", sys.platform)
+    ui.kv("Platform", detect_platform())
+    ui.kv("Varsayilan worker", default_workers())
     ui.kv("Terminal genisligi", ui.width)
     ui.kv("Renk destegi", "acik" if ui.color else "kapali")
 

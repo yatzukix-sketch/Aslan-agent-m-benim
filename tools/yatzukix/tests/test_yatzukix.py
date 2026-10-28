@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from yatzukix import crypto, net, osint, payloads, recon, web
+from yatzukix import default_workers, detect_platform
 
 
 class _EchoHandler(BaseHTTPRequestHandler):
@@ -55,6 +56,41 @@ def _local_http_server(handler):
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+class TestPlatformTuning(unittest.TestCase):
+    def test_detect_returns_known_platform(self):
+        self.assertIn(detect_platform(), ("ish", "termux", "alpine", "macos", "linux"))
+
+    def test_ish_detected_via_proc_marker(self):
+        """iSH exposes /proc/ish; the detector must honour it."""
+        import tempfile
+        from unittest import mock
+        with mock.patch("yatzukix.os.path.isdir", side_effect=lambda p: p == "/proc/ish"):
+            self.assertEqual(detect_platform(), "ish")
+
+    def test_ish_caps_workers_hard(self):
+        from unittest import mock
+        with mock.patch("yatzukix.detect_platform", return_value="ish"):
+            self.assertLessEqual(default_workers(500), 24)
+            self.assertEqual(default_workers(), 24)
+
+    def test_linux_allows_high_workers(self):
+        from unittest import mock
+        with mock.patch("yatzukix.detect_platform", return_value="linux"):
+            self.assertEqual(default_workers(500), 256)
+
+    def test_requested_none_gives_default(self):
+        from unittest import mock
+        with mock.patch("yatzukix.detect_platform", return_value="termux"):
+            self.assertEqual(default_workers(), 100)
+            self.assertEqual(default_workers(50), 50)
+
+    def test_workers_never_below_one(self):
+        from unittest import mock
+        with mock.patch("yatzukix.detect_platform", return_value="ish"):
+            self.assertEqual(default_workers(0), 1)
+            self.assertEqual(default_workers(-5), 1)
 
 
 class TestPortParsing(unittest.TestCase):
